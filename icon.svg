@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0b4da2"/>
+  <rect x="72" y="72" width="368" height="368" rx="32" fill="#ffffff"/>
+  <rect x="96" y="96" width="320" height="72" rx="12" fill="#ffd22e"/>
+  <g fill="#09224a" font-family="Arial, Helvetica, sans-serif" font-weight="900" text-anchor="middle">
+    <text x="256" y="148" font-size="54">JT-BINGO</text>
+    <text x="256" y="330" font-size="132">75</text>
+  </g>
+  <path d="M116 204h280M116 256h280M116 360h280M168 204v196M220 204v196M292 204v196M344 204v196" stroke="#0b4da2" stroke-width="12" stroke-linecap="round"/>
+</svg>

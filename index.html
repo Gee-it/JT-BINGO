@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b4da2">
+  <title>JT-BINGO Generator</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="index.html" aria-label="JT-BINGO home">
+      <span class="brand-mark">JT</span>
+      <span>
+        <strong>JT-BINGO</strong>
+        <small>Card Generator</small>
+      </span>
+    </a>
+    <nav class="top-nav" aria-label="Main pages">
+      <a href="index.html" aria-current="page">Cards</a>
+      <a href="caller.html">Caller</a>
+    </nav>
+  </header>
+
+  <main class="shell">
+    <section class="hero-panel">
+      <div>
+        <p class="eyebrow">150 printable cards</p>
+        <h1>Bingo cards ready for class, parties, and game day.</h1>
+        <p class="intro">Generate a complete 1-75 Bingo set with big child-friendly numbers, FREE centers, and clean A4 landscape printing.</p>
+      </div>
+      <div class="hero-actions">
+        <button class="primary-button" id="generateCardsBtn" type="button">สร้างการ์ด 150 ใบ</button>
+        <button class="secondary-button" id="printCardsBtn" type="button">ส่งออก PDF สำหรับพิมพ์</button>
+        <button class="ghost-button" id="installAppBtn" type="button" hidden>ติดตั้งแอป</button>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="Card tools">
+      <div class="status-block">
+        <span class="status-number" id="cardCount">0</span>
+        <span>unique cards generated</span>
+      </div>
+      <div class="status-block">
+        <span class="status-number">A4</span>
+        <span>landscape, 2 per page</span>
+      </div>
+      <label class="search-box">
+        <span>Preview card</span>
+        <select id="previewSelect" aria-label="Choose card to preview">
+          <option value="0">Card #001</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="preview-section" aria-label="Bingo card preview">
+      <div class="section-heading">
+        <h2>Preview</h2>
+        <p>Cards are regenerated in one complete printable set.</p>
+      </div>
+      <div id="previewCard" class="preview-card"></div>
+    </section>
+
+    <section class="winner-history-section no-print" aria-label="Winner history">
+      <div class="section-heading">
+        <h2>ประวัติผู้ชนะ</h2>
+        <p>บันทึกผู้ชนะคนแรกของแต่ละประเภท และล็อกไม่ให้ประกาศซ้ำในประเภทเดิม</p>
+      </div>
+      <div class="winner-history-panel">
+        <div class="winner-history-list" id="winnerHistoryList"></div>
+        <button class="ghost-light-button" id="clearWinnerHistoryBtn" type="button">ล้างประวัติผู้ชนะ</button>
+      </div>
+    </section>
+
+    <section class="tracker-section no-print" aria-label="Card attendance and distribution tracker">
+      <div class="section-heading">
+        <h2>ติดตามการ์ด</h2>
+        <p>บันทึกชื่อผู้เล่น การแจกการ์ด และการเข้าเล่น ข้อมูลจะถูกเก็บไว้ในเครื่องนี้</p>
+      </div>
+      <div class="tracker-panel">
+        <div class="tracker-summary" aria-label="Tracking totals">
+          <div class="status-block">
+            <span class="status-number" id="distributedCount">0</span>
+            <span>แจกแล้ว</span>
+          </div>
+          <div class="status-block">
+            <span class="status-number" id="presentCount">0</span>
+            <span>มาแล้ว</span>
+          </div>
+          <div class="status-block">
+            <span class="status-number" id="availableCount">150</span>
+            <span>ยังไม่แจก</span>
+          </div>
+        </div>
+
+        <div class="tracker-tools">
+          <label class="tracker-search">
+            <span>ค้นหาการ์ดหรือชื่อ</span>
+            <input id="trackerSearch" type="search" placeholder="เช่น 001 หรือ ชื่อผู้เล่น">
+          </label>
+          <div class="tracker-actions">
+            <button class="secondary-button" id="exportTrackerBtn" type="button">ส่งออก CSV</button>
+            <button class="ghost-light-button" id="resetTrackerBtn" type="button">ล้างข้อมูล</button>
+          </div>
+        </div>
+
+        <div class="tracker-table-wrap">
+          <table class="tracker-table">
+            <thead>
+              <tr>
+                <th>การ์ด</th>
+                <th>ชื่อผู้เล่น</th>
+                <th>แจกแล้ว</th>
+                <th>มาแล้ว</th>
+              </tr>
+            </thead>
+            <tbody id="trackerTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="print-section" aria-label="Printable Bingo cards">
+      <div id="cardsContainer" class="cards-container"></div>
+    </section>
+  </main>
+
+  <div class="winner-popup" id="winnerPopup" aria-hidden="true">
+    <div class="winner-dialog" role="dialog" aria-modal="true" aria-labelledby="winnerTitle">
+      <span class="winner-spark spark-one"></span>
+      <span class="winner-spark spark-two"></span>
+      <span class="winner-spark spark-three"></span>
+      <p class="eyebrow">JT-BINGO</p>
+      <h2 id="winnerTitle">บิงโก!</h2>
+      <p id="winnerMessage">ผู้ชนะ</p>
+      <div class="winner-details" aria-label="Winner details">
+        <span id="winnerCardId">รหัสการ์ด: -</span>
+        <span id="winnerType">ประเภทชนะ: -</span>
+        <strong id="winnerFirstLine">ผู้ชนะคนแรก: การ์ด #---</strong>
+      </div>
+      <button class="primary-button" id="closeWinnerPopup" type="button">ตกลง</button>
+    </div>
+  </div>
+
+  <script src="script.js?v=6"></script>
+</body>
+</html>

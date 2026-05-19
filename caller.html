@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b4da2">
+  <title>JT-BINGO Caller</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body>
+  <header class="app-header no-print">
+    <a class="brand" href="index.html" aria-label="JT-BINGO home">
+      <span class="brand-mark">JT</span>
+      <span>
+        <strong>JT-BINGO</strong>
+        <small>Caller</small>
+      </span>
+    </a>
+    <nav class="top-nav" aria-label="Main pages">
+      <a href="index.html">Cards</a>
+      <a href="caller.html" aria-current="page">Caller</a>
+    </nav>
+  </header>
+
+  <main class="caller-shell">
+    <section class="caller-stage">
+      <div class="caller-info">
+        <p class="eyebrow">Numbers 1-75</p>
+        <h1>Bingo Caller</h1>
+        <p class="intro">Draw each number once. The board keeps a clear history for everyone to see.</p>
+      </div>
+
+      <div class="current-call" aria-live="polite">
+        <span class="current-label">Current number</span>
+        <strong id="currentNumber">--</strong>
+        <span id="currentLetter">Ready</span>
+      </div>
+
+      <div class="caller-controls">
+        <button class="primary-button" id="drawNumberBtn" type="button">สุ่มเลข</button>
+        <button class="secondary-button" id="projectorModeBtn" type="button" aria-pressed="false">โหมดโปรเจคเตอร์</button>
+        <button class="secondary-button" id="fullscreenBtn" type="button">เต็มจอ</button>
+        <button class="ghost-button" id="resetCallerBtn" type="button">เริ่มใหม่</button>
+      </div>
+
+      <div class="draw-stats" aria-label="Draw status">
+        <span><strong id="drawnCount">0</strong> called</span>
+        <span><strong id="remainingCount">75</strong> remaining</span>
+      </div>
+
+      <div class="live-winner-panel" aria-live="polite">
+        <div>
+          <h2>ตรวจผู้ชนะสด</h2>
+          <p id="liveWinnerSummary">ติดตามเฉพาะการ์ดที่แจกแล้ว</p>
+        </div>
+        <div class="analysis-mode-toggle" role="group" aria-label="โหมดวิเคราะห์ผู้ชนะ">
+          <button class="analysis-mode-button active" id="analyzeAllCardsBtn" type="button" data-mode="all" aria-pressed="true">วิเคราะห์ทุกการ์ด</button>
+          <button class="analysis-mode-button" id="analyzeDistributedCardsBtn" type="button" data-mode="distributed" aria-pressed="false">เฉพาะการ์ดที่แจกแล้ว</button>
+        </div>
+        <div class="live-winner-groups" id="liveWinnerGroups"></div>
+        <div class="close-winner-panel">
+          <h3>การ์ดที่ใกล้บิงโก</h3>
+          <div class="close-winner-list" id="closeWinnerList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="caller-board" aria-label="Called numbers">
+      <div class="letter-row" data-letter="B">
+        <h2>B</h2>
+        <div class="number-strip" id="stripB"></div>
+      </div>
+      <div class="letter-row" data-letter="I">
+        <h2>I</h2>
+        <div class="number-strip" id="stripI"></div>
+      </div>
+      <div class="letter-row" data-letter="N">
+        <h2>N</h2>
+        <div class="number-strip" id="stripN"></div>
+      </div>
+      <div class="letter-row" data-letter="G">
+        <h2>G</h2>
+        <div class="number-strip" id="stripG"></div>
+      </div>
+      <div class="letter-row" data-letter="O">
+        <h2>O</h2>
+        <div class="number-strip" id="stripO"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js?v=6"></script>
+</body>
+</html>
