@@ -21,14 +21,21 @@ const STAGE_TYPES = {
 const TRACKER_STORAGE_KEY = "jt-bingo-card-tracker-v2";
 const WINNER_STORAGE_KEY = "jt-bingo-winners-v1";
 const CARD_STORAGE_KEY = "jt-bingo-card-set-v1";
+const CARD_SETS_STORAGE_KEY = "jt-bingo-card-sets-v1";
+const ACTIVE_SET_STORAGE_KEY = "jt-bingo-active-set-id-v1";
+const CALLER_STATE_STORAGE_KEY = "jt-bingo-caller-state-v1";
+const SHORT_SET_ID_PATTERN = /^[A-Z]\d{4}$/;
 
 let bingoCards = [];
 let callerPool = [];
 let calledNumbers = [];
+let drawHistory = [];
 let latestNumber = null;
 let winnerLocks = createWinnerLocks();
 let trackerRecords = [];
 let winnerRecords = [];
+let cardSets = [];
+let activeSetId = "";
 let deferredInstallPrompt = null;
 let audioContext = null;
 let liveAnalysisMode = "all";
@@ -57,8 +64,12 @@ function initCardGenerator() {
   const exportTrackerButton = document.getElementById("exportTrackerBtn");
   const resetTrackerButton = document.getElementById("resetTrackerBtn");
   const clearWinnerHistoryButton = document.getElementById("clearWinnerHistoryBtn");
+  const cardSetSelect = document.getElementById("cardSetSelect");
+  const createSetButton = document.getElementById("createSetBtn");
 
   generateButton.addEventListener("click", generateAndRenderCards);
+  createSetButton.addEventListener("click", generateAndRenderCards);
+  cardSetSelect.addEventListener("change", () => selectCardSet(cardSetSelect.value));
   printButton.addEventListener("click", () => {
     if (bingoCards.length !== CARD_TOTAL) {
       generateAndRenderCards();
@@ -79,17 +90,27 @@ function initCardGenerator() {
   trackerRecords = loadTrackerRecords();
   winnerRecords = loadWinnerRecords();
   winnerLocks = createWinnerLocks(winnerRecords);
+  loadOrCreateBingoCards();
   renderTrackerTable();
   renderWinnerHistory();
-  loadOrCreateBingoCards();
+  renderSetControls();
   renderGeneratedCards();
 }
 
 function generateAndRenderCards() {
-  bingoCards = createUniqueBingoCards();
+  if (!confirm("Create a new SET ID? Current printed cards may no longer match the caller if you switch sets.")) {
+    return;
+  }
+
+  const newSet = createCardSet();
+  cardSets.push(newSet);
+  activeSetId = newSet.id;
+  bingoCards = newSet.cards;
   winnerLocks = createWinnerLocks(winnerRecords);
   closeWinnerNotification();
-  saveBingoCards();
+  saveCardSets();
+  saveActiveSetId();
+  renderSetControls();
   renderGeneratedCards();
 }
 
@@ -110,14 +131,45 @@ function createUniqueBingoCards() {
   return cards;
 }
 
+function createCardSet(cards = createUniqueBingoCards()) {
+  const id = getNextSetId();
+  return {
+    id,
+    cards,
+    createdAt: new Date().toISOString()
+  };
+}
+
 function loadOrCreateBingoCards() {
-  bingoCards = loadBingoCards();
+  cardSets = loadCardSets();
+  const savedActiveSetId = loadActiveSetId();
+  const migratedActiveSetId = migrateCardSetIds(savedActiveSetId);
+  if (cardSets.length === 0) {
+    const migratedCards = loadBingoCards();
+    cardSets = [createCardSet(migratedCards.length === CARD_TOTAL ? migratedCards : createUniqueBingoCards())];
+    activeSetId = cardSets[0].id;
+    saveCardSets();
+    saveActiveSetId();
+  }
+
+  activeSetId = migratedActiveSetId || loadActiveSetId();
+  if (!cardSets.some((set) => set.id === activeSetId)) {
+    activeSetId = cardSets[0].id;
+    saveActiveSetId();
+  }
+
+  const activeSet = cardSets.find((set) => set.id === activeSetId);
+  bingoCards = activeSet?.cards || [];
   if (bingoCards.length === CARD_TOTAL) {
     return;
   }
 
-  bingoCards = createUniqueBingoCards();
-  saveBingoCards();
+  const repairedSet = createCardSet();
+  cardSets.push(repairedSet);
+  activeSetId = repairedSet.id;
+  bingoCards = repairedSet.cards;
+  saveCardSets();
+  saveActiveSetId();
 }
 
 function renderGeneratedCards() {
@@ -125,6 +177,7 @@ function renderGeneratedCards() {
   renderPreview(0);
   renderAllCards();
   document.getElementById("cardCount").textContent = String(bingoCards.length);
+  updateActiveSetLabels();
 }
 
 function loadBingoCards() {
@@ -142,6 +195,133 @@ function loadBingoCards() {
 
 function saveBingoCards() {
   localStorage.setItem(CARD_STORAGE_KEY, JSON.stringify(bingoCards));
+}
+
+function getNextSetId() {
+  const usedIds = new Set(cardSets.map((set) => set.id));
+  let highestIndex = 0;
+
+  usedIds.forEach((id) => {
+    if (!SHORT_SET_ID_PATTERN.test(id)) {
+      return;
+    }
+
+    const letterIndex = id.charCodeAt(0) - 65;
+    const number = Number(id.slice(1));
+    highestIndex = Math.max(highestIndex, letterIndex * 9999 + number);
+  });
+
+  for (let index = highestIndex + 1; index <= 26 * 9999; index += 1) {
+    const id = formatSetId(index);
+    if (!usedIds.has(id)) {
+      return id;
+    }
+  }
+
+  throw new Error("No available SET IDs");
+}
+
+function formatSetId(index) {
+  const letterIndex = Math.floor((index - 1) / 9999);
+  const number = ((index - 1) % 9999) + 1;
+  return `${String.fromCharCode(65 + letterIndex)}${String(number).padStart(4, "0")}`;
+}
+
+function migrateCardSetIds(savedActiveSetId) {
+  const usedIds = new Set();
+  const idMap = new Map();
+  let changed = false;
+
+  cardSets.forEach((set) => {
+    if (SHORT_SET_ID_PATTERN.test(set.id) && !usedIds.has(set.id)) {
+      usedIds.add(set.id);
+      return;
+    }
+
+    const oldId = set.id;
+    const newId = getNextSetIdFromUsed(usedIds);
+    set.id = newId;
+    usedIds.add(newId);
+    idMap.set(oldId, newId);
+    changed = true;
+  });
+
+  if (changed) {
+    saveCardSets();
+  }
+
+  const migratedActiveSetId = idMap.get(savedActiveSetId) || savedActiveSetId;
+  if (migratedActiveSetId && migratedActiveSetId !== savedActiveSetId) {
+    activeSetId = migratedActiveSetId;
+    saveActiveSetId();
+  }
+
+  return migratedActiveSetId;
+}
+
+function getNextSetIdFromUsed(usedIds) {
+  for (let index = 1; index <= 26 * 9999; index += 1) {
+    const id = formatSetId(index);
+    if (!usedIds.has(id)) {
+      return id;
+    }
+  }
+
+  throw new Error("No available SET IDs");
+}
+
+function loadCardSets() {
+  try {
+    const savedSets = JSON.parse(localStorage.getItem(CARD_SETS_STORAGE_KEY) || "[]");
+    if (!Array.isArray(savedSets)) {
+      return [];
+    }
+
+    return savedSets.filter((set) => set?.id && Array.isArray(set.cards) && set.cards.length === CARD_TOTAL);
+  } catch {
+    return [];
+  }
+}
+
+function saveCardSets() {
+  localStorage.setItem(CARD_SETS_STORAGE_KEY, JSON.stringify(cardSets));
+}
+
+function loadActiveSetId() {
+  return localStorage.getItem(ACTIVE_SET_STORAGE_KEY) || "";
+}
+
+function saveActiveSetId() {
+  localStorage.setItem(ACTIVE_SET_STORAGE_KEY, activeSetId);
+}
+
+function selectCardSet(setId) {
+  const selectedSet = cardSets.find((set) => set.id === setId);
+  if (!selectedSet) {
+    return;
+  }
+
+  activeSetId = selectedSet.id;
+  bingoCards = selectedSet.cards;
+  saveActiveSetId();
+  renderSetControls();
+  renderGeneratedCards();
+}
+
+function renderSetControls() {
+  const setSelect = document.getElementById("cardSetSelect");
+  if (setSelect) {
+    setSelect.innerHTML = cardSets
+      .map((set) => `<option value="${set.id}" ${set.id === activeSetId ? "selected" : ""}>${set.id}</option>`)
+      .join("");
+  }
+  updateActiveSetLabels();
+}
+
+function updateActiveSetLabels() {
+  document.querySelectorAll("#activeSetIdLabel, #callerSetIdLabel").forEach((label) => {
+    label.textContent = activeSetId || "-";
+  });
 }
 
 function createBingoCard() {
@@ -376,7 +556,10 @@ function buildCardElement(card, cardNumber) {
 
   const title = document.createElement("div");
   title.className = "card-title";
-  title.textContent = `JT-BINGO Card #${formatCardNumber(cardNumber)}`;
+  title.innerHTML = `
+    <span class="card-title-main">JT-BINGO</span>
+    <span class="card-meta">SET ${escapeHtml(activeSetId || "-")} &bull; CARD #${formatCardNumber(cardNumber)}</span>
+  `;
   article.appendChild(title);
 
   const winBanner = document.createElement("div");
@@ -387,7 +570,7 @@ function buildCardElement(card, cardNumber) {
 
   const grid = document.createElement("div");
   grid.className = "bingo-grid";
-  grid.setAttribute("aria-label", title.textContent);
+  grid.setAttribute("aria-label", `SET ${activeSetId || "-"} Card #${formatCardNumber(cardNumber)}`);
 
   LETTERS.forEach((letter) => {
     const cell = document.createElement("div");
@@ -762,19 +945,24 @@ function launchConfetti() {
 
 function initCaller() {
   document.getElementById("drawNumberBtn").addEventListener("click", drawNumber);
+  document.getElementById("undoDrawBtn").addEventListener("click", undoDraw);
   document.getElementById("resetCallerBtn").addEventListener("click", resetCaller);
   document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
   document.getElementById("projectorModeBtn").addEventListener("click", toggleProjectorMode);
   document.getElementById("analyzeAllCardsBtn").addEventListener("click", () => setLiveAnalysisMode("all"));
   document.getElementById("analyzeDistributedCardsBtn").addEventListener("click", () => setLiveAnalysisMode("distributed"));
   loadOrCreateBingoCards();
+  loadCallerState();
+  updateActiveSetLabels();
   trackerRecords = loadTrackerRecords();
 
   document.addEventListener("fullscreenchange", () => {
     document.body.classList.toggle("fullscreen-active", Boolean(document.fullscreenElement));
   });
 
-  resetCaller();
+  updateCallerDisplay();
+  renderCallerBoard();
+  renderLiveWinnerStatus();
 }
 
 function setLiveAnalysisMode(mode) {
@@ -785,16 +973,19 @@ function setLiveAnalysisMode(mode) {
     button.setAttribute("aria-pressed", String(isActive));
   });
   renderLiveWinnerStatus();
+  saveCallerState();
 }
 
 function resetCaller() {
   callerPool = shuffle(range(1, CALL_TOTAL));
   calledNumbers = [];
+  drawHistory = [];
   latestNumber = null;
 
   renderCallerBoard();
   updateCallerDisplay();
   renderLiveWinnerStatus();
+  saveCallerState();
 }
 
 function drawNumber() {
@@ -805,10 +996,86 @@ function drawNumber() {
 
   latestNumber = callerPool.pop();
   calledNumbers.push(latestNumber);
+  drawHistory.push(latestNumber);
   playDrawSound(latestNumber);
   updateCallerDisplay();
   renderCallerBoard();
   renderLiveWinnerStatus();
+  saveCallerState();
+}
+
+function undoDraw() {
+  const lastDraw = drawHistory.pop();
+  if (!lastDraw) {
+    return;
+  }
+
+  const undoneNumber = calledNumbers.pop();
+  if (undoneNumber !== lastDraw) {
+    calledNumbers = drawHistory.slice();
+  }
+
+  if (!callerPool.includes(lastDraw)) {
+    callerPool.push(lastDraw);
+  }
+  latestNumber = calledNumbers[calledNumbers.length - 1] || null;
+  updateCallerDisplay();
+  renderCallerBoard();
+  renderLiveWinnerStatus();
+  saveCallerState();
+}
+
+function loadCallerState() {
+  try {
+    const savedState = JSON.parse(localStorage.getItem(CALLER_STATE_STORAGE_KEY) || "null");
+    if (!isValidCallerState(savedState)) {
+      callerPool = shuffle(range(1, CALL_TOTAL));
+      calledNumbers = [];
+      drawHistory = [];
+      latestNumber = null;
+      saveCallerState();
+      return;
+    }
+
+    callerPool = savedState.callerPool;
+    calledNumbers = savedState.calledNumbers;
+    drawHistory = savedState.drawHistory;
+    latestNumber = savedState.latestNumber;
+    liveAnalysisMode = savedState.liveAnalysisMode || liveAnalysisMode;
+
+    if (savedState.activeSetId && cardSets.some((set) => set.id === savedState.activeSetId)) {
+      activeSetId = savedState.activeSetId;
+      bingoCards = cardSets.find((set) => set.id === activeSetId).cards;
+      saveActiveSetId();
+    }
+    setLiveAnalysisMode(liveAnalysisMode);
+  } catch {
+    callerPool = shuffle(range(1, CALL_TOTAL));
+    calledNumbers = [];
+    drawHistory = [];
+    latestNumber = null;
+    saveCallerState();
+  }
+}
+
+function isValidCallerState(state) {
+  if (!state || !Array.isArray(state.callerPool) || !Array.isArray(state.calledNumbers) || !Array.isArray(state.drawHistory)) {
+    return false;
+  }
+
+  const allNumbers = [...state.callerPool, ...state.calledNumbers];
+  return allNumbers.length === CALL_TOTAL && new Set(allNumbers).size === CALL_TOTAL && allNumbers.every((number) => Number.isInteger(number) && number >= 1 && number <= CALL_TOTAL);
+}
+
+function saveCallerState() {
+  localStorage.setItem(CALLER_STATE_STORAGE_KEY, JSON.stringify({
+    activeSetId,
+    callerPool,
+    calledNumbers,
+    drawHistory,
+    latestNumber,
+    liveAnalysisMode
+  }));
 }
 
 function updateCallerDisplay() {
@@ -862,9 +1129,9 @@ function renderLiveWinnerStatus() {
   groupsContainer.innerHTML = "";
 
   [
-    ["oneLine", "บิงโก 1 แถว"],
-    ["twoLines", "บิงโก 2 แถว"],
-    ["fullHouse", "ฟูลเฮาส์"]
+    ["oneLine", "1 line bingo"],
+    ["twoLines", "2 line bingo"],
+    ["fullHouse", "full card bingo"]
   ].forEach(([stage, label]) => {
     const group = document.createElement("div");
     group.className = "live-winner-group";

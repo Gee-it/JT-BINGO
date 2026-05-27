@@ -1,10 +1,12 @@
-const CACHE_NAME = "jt-bingo-offline-v6";
+const CACHE_NAME = "jt-bingo-offline-v12";
 const OFFLINE_FILES = [
   "./",
   "./index.html",
   "./caller.html",
   "./styles.css",
+  "./styles.css?v=12",
   "./script.js",
+  "./script.js?v=12",
   "./manifest.webmanifest",
   "./icon.svg"
 ];
@@ -31,16 +33,12 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then((networkResponse) => {
+    fetch(event.request).then((networkResponse) => {
+      if (networkResponse.ok) {
         const copy = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return networkResponse;
-      }).catch(() => caches.match("./index.html"));
-    })
+      }
+      return networkResponse;
+    }).catch(() => caches.match(event.request).then((cachedResponse) => cachedResponse || caches.match("./index.html")))
   );
 });

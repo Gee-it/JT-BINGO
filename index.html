@@ -7,7 +7,7 @@
   <title>JT-BINGO Generator</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body>
   <header class="app-header">
@@ -53,6 +53,18 @@
           <option value="0">Card #001</option>
         </select>
       </label>
+    </section>
+
+    <section class="set-panel no-print" aria-label="Card set controls">
+      <div>
+        <span>Active SET ID</span>
+        <strong id="activeSetIdLabel">-</strong>
+      </div>
+      <label>
+        <span>Choose existing set</span>
+        <select id="cardSetSelect" aria-label="Choose existing card set"></select>
+      </label>
+      <button class="secondary-button" id="createSetBtn" type="button">Create New Set</button>
     </section>
 
     <section class="preview-section" aria-label="Bingo card preview">
@@ -144,6 +156,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=6"></script>
+  <script src="script.js?v=12"></script>
 </body>
 </html>
