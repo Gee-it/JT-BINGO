@@ -1,10 +1,11 @@
-const CACHE_NAME = "jt-bingo-offline-v15";
+const CACHE_NAME = "jt-bingo-offline-v16";
 const OFFLINE_FILES = [
   "./",
   "./index.html",
   "./caller.html",
   "./styles.css",
   "./styles.css?v=15",
+  "./auth.js?v=16",
   "./script.js",
   "./script.js?v=15",
   "./manifest.webmanifest",
