@@ -110,6 +110,7 @@ function generateAndRenderCards() {
   closeWinnerNotification();
   saveCardSets();
   saveActiveSetId();
+  clearCallerStateForSetChange();
   renderSetControls();
   renderGeneratedCards();
 }
@@ -304,16 +305,43 @@ function selectCardSet(setId) {
   activeSetId = selectedSet.id;
   bingoCards = selectedSet.cards;
   saveActiveSetId();
+  clearCallerStateForSetChange();
   renderSetControls();
   renderGeneratedCards();
 }
 
+function selectCallerSet(setId) {
+  const selectedSet = cardSets.find((set) => set.id === setId);
+  if (!selectedSet || selectedSet.id === activeSetId) {
+    return;
+  }
+
+  if (calledNumbers.length > 0 && !confirm("Switch SET ID and reset the current caller game? Current called numbers will be cleared.")) {
+    renderSetControls();
+    return;
+  }
+
+  activeSetId = selectedSet.id;
+  bingoCards = selectedSet.cards;
+  saveActiveSetId();
+  resetCaller();
+  renderSetControls();
+  updateActiveSetLabels();
+}
+
 function renderSetControls() {
-  const setSelect = document.getElementById("cardSetSelect");
-  if (setSelect) {
-    setSelect.innerHTML = cardSets
+  const setOptions = cardSets
       .map((set) => `<option value="${set.id}" ${set.id === activeSetId ? "selected" : ""}>${set.id}</option>`)
       .join("");
+
+  const setSelect = document.getElementById("cardSetSelect");
+  if (setSelect) {
+    setSelect.innerHTML = setOptions;
+  }
+
+  const callerSetSelect = document.getElementById("callerSetSelect");
+  if (callerSetSelect) {
+    callerSetSelect.innerHTML = setOptions;
   }
   updateActiveSetLabels();
 }
@@ -953,6 +981,8 @@ function initCaller() {
   document.getElementById("analyzeDistributedCardsBtn").addEventListener("click", () => setLiveAnalysisMode("distributed"));
   loadOrCreateBingoCards();
   loadCallerState();
+  renderSetControls();
+  document.getElementById("callerSetSelect").addEventListener("change", (event) => selectCallerSet(event.target.value));
   updateActiveSetLabels();
   trackerRecords = loadTrackerRecords();
 
@@ -1028,7 +1058,7 @@ function undoDraw() {
 function loadCallerState() {
   try {
     const savedState = JSON.parse(localStorage.getItem(CALLER_STATE_STORAGE_KEY) || "null");
-    if (!isValidCallerState(savedState)) {
+    if (!isValidCallerState(savedState) || (savedState.activeSetId && savedState.activeSetId !== activeSetId)) {
       callerPool = shuffle(range(1, CALL_TOTAL));
       calledNumbers = [];
       drawHistory = [];
@@ -1076,6 +1106,10 @@ function saveCallerState() {
     latestNumber,
     liveAnalysisMode
   }));
+}
+
+function clearCallerStateForSetChange() {
+  localStorage.removeItem(CALLER_STATE_STORAGE_KEY);
 }
 
 function updateCallerDisplay() {

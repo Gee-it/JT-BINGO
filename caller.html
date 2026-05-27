@@ -7,7 +7,7 @@
   <title>JT-BINGO Caller</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
   <header class="app-header no-print">
@@ -35,6 +35,10 @@
       <div class="caller-set-badge">
         <span>Active SET ID</span>
         <strong id="callerSetIdLabel">-</strong>
+        <label class="caller-set-select-label">
+          <span>Switch SET</span>
+          <select id="callerSetSelect" aria-label="Switch active SET ID"></select>
+        </label>
       </div>
 
       <div class="current-call" aria-live="polite">
@@ -97,6 +101,6 @@
     </section>
   </main>
 
-  <script src="script.js?v=12"></script>
+  <script src="script.js?v=15"></script>
 </body>
 </html>
