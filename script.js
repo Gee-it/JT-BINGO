@@ -66,10 +66,16 @@ function initCardGenerator() {
   const clearWinnerHistoryButton = document.getElementById("clearWinnerHistoryBtn");
   const cardSetSelect = document.getElementById("cardSetSelect");
   const createSetButton = document.getElementById("createSetBtn");
+  const exportSetButton = document.getElementById("exportSetBtn");
+  const importSetButton = document.getElementById("importSetBtn");
+  const importSetInput = document.getElementById("importSetInput");
 
   generateButton.addEventListener("click", generateAndRenderCards);
   createSetButton.addEventListener("click", generateAndRenderCards);
   cardSetSelect.addEventListener("change", () => selectCardSet(cardSetSelect.value));
+  exportSetButton.addEventListener("click", exportActiveSet);
+  importSetButton.addEventListener("click", () => importSetInput.click());
+  importSetInput.addEventListener("change", importSetFromFile);
   printButton.addEventListener("click", () => {
     if (bingoCards.length !== CARD_TOTAL) {
       generateAndRenderCards();
@@ -137,7 +143,18 @@ function createCardSet(cards = createUniqueBingoCards()) {
   return {
     id,
     cards,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    metadata: createSetMetadata("generated")
+  };
+}
+
+function createSetMetadata(source) {
+  return {
+    app: "JT-BINGO",
+    version: 1,
+    source,
+    cardTotal: CARD_TOTAL,
+    numberRange: "1-75"
   };
 }
 
@@ -294,6 +311,119 @@ function loadActiveSetId() {
 
 function saveActiveSetId() {
   localStorage.setItem(ACTIVE_SET_STORAGE_KEY, activeSetId);
+}
+
+function getActiveCardSet() {
+  return cardSets.find((set) => set.id === activeSetId) || null;
+}
+
+function exportActiveSet() {
+  const activeSet = getActiveCardSet();
+  if (!activeSet) {
+    alert("No active SET is available to export.");
+    return;
+  }
+
+  const payload = {
+    setId: activeSet.id,
+    createdAt: activeSet.createdAt || new Date().toISOString(),
+    cards: activeSet.cards,
+    metadata: {
+      ...createSetMetadata(activeSet.metadata?.source || "exported"),
+      ...(activeSet.metadata || {}),
+      exportedAt: new Date().toISOString()
+    }
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${activeSet.id}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(link.href);
+}
+
+function importSetFromFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    try {
+      const importedSet = normalizeImportedSet(JSON.parse(reader.result));
+      const existingIndex = cardSets.findIndex((set) => set.id === importedSet.id);
+      if (existingIndex >= 0 && !confirm(`SET ${importedSet.id} already exists. Replace it?`)) {
+        return;
+      }
+
+      if (existingIndex >= 0) {
+        cardSets[existingIndex] = importedSet;
+      } else {
+        cardSets.push(importedSet);
+      }
+
+      activeSetId = importedSet.id;
+      bingoCards = importedSet.cards;
+      saveCardSets();
+      saveActiveSetId();
+      clearCallerStateForSetChange();
+      renderSetControls();
+      renderGeneratedCards();
+      alert(`Imported SET ${importedSet.id} successfully.`);
+    } catch {
+      alert("Import failed. Please choose a valid JT-BINGO SET JSON file.");
+    } finally {
+      event.target.value = "";
+    }
+  });
+  reader.readAsText(file);
+}
+
+function normalizeImportedSet(data) {
+  const setId = String(data?.setId || data?.id || "").trim().toUpperCase();
+  if (!SHORT_SET_ID_PATTERN.test(setId)) {
+    throw new Error("Invalid SET ID");
+  }
+
+  const cards = data?.cards;
+  if (!isValidCardSetCards(cards)) {
+    throw new Error("Invalid card data");
+  }
+
+  return {
+    id: setId,
+    cards,
+    createdAt: data.createdAt || new Date().toISOString(),
+    metadata: {
+      ...createSetMetadata("imported"),
+      ...(data.metadata || {}),
+      importedAt: new Date().toISOString()
+    }
+  };
+}
+
+function isValidCardSetCards(cards) {
+  if (!Array.isArray(cards) || cards.length !== CARD_TOTAL) {
+    return false;
+  }
+
+  return cards.every((card) => (
+    Array.isArray(card) &&
+    card.length === 5 &&
+    card.every((row, rowIndex) => (
+      Array.isArray(row) &&
+      row.length === 5 &&
+      row.every((value, colIndex) => {
+        if (rowIndex === 2 && colIndex === 2) {
+          return value === "FREE";
+        }
+        return Number.isInteger(value) && value >= 1 && value <= CALL_TOTAL;
+      })
+    ))
+  ));
 }
 
 function selectCardSet(setId) {
