@@ -1,4 +1,4 @@
-const CACHE_NAME = "jt-bingo-offline-v17";
+const CACHE_NAME = "jt-bingo-offline-v18";
 const OFFLINE_FILES = [
   "./",
   "./index.html",
@@ -7,9 +7,20 @@ const OFFLINE_FILES = [
   "./styles.css?v=15",
   "./auth.js?v=16",
   "./script.js",
-  "./script.js?v=17",
+  "./script.js?v=18",
   "./manifest.webmanifest",
-  "./icon.svg"
+  "./icon.svg",
+  "./sets/index.json",
+  "./sets/A0001.json",
+  "./sets/A0002.json",
+  "./sets/A0003.json",
+  "./sets/A0004.json",
+  "./sets/A0005.json",
+  "./sets/A0006.json",
+  "./sets/A0007.json",
+  "./sets/A0008.json",
+  "./sets/A0009.json",
+  "./sets/A0010.json"
 ];
 
 self.addEventListener("install", (event) => {
